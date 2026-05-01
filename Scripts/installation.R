@@ -37,7 +37,8 @@ install.packages(c(
   "terra",
   "tidyr",
   "tidyterra",
-  "viridis"
+  "viridis",
+  "palmerpenguins"
 ))
 
 
