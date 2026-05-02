@@ -7,7 +7,9 @@ library(tidyverse)
 library(ggplot2)
 library(patchwork)
 
-
+bru_options_set(control.compute = list(dic = TRUE, 
+                                       waic = TRUE, 
+                                       cpo = TRUE))
 # 1. Very simple example ####
 
 ## 1.1 Simulate data ####
@@ -57,7 +59,6 @@ new_data = data.frame(x = rnorm(100))
 
 pred = predict(m0.1, new_data, ~ Intercept + beta_1,
                n.samples = 1000)
-
 
 ggplot() +
   geom_point(data = df, aes(x = x, y = y), alpha = 0.3) +
