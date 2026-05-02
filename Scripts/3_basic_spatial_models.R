@@ -1,0 +1,199 @@
+# 0. Housekeeping ####
+rm(list = ls())
+
+library(inlabru)
+library(INLA)
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(terra)
+library(tidyterra)
+library(patchwork)
+
+bru_options_set(control.compute = list(dic = TRUE, 
+                                       waic = TRUE, 
+                                       cpo = TRUE))
+
+# 1. Load and explore data ####
+data("gorillas_sf")
+names(gorillas_sf)
+
+ggplot() + 
+  geom_sf(data = gorillas_sf$boundary, fill = "lightgray") +
+  geom_sf(data = gorillas_sf$nests, alpha = 0.2) + 
+  geom_sf(data = gorillas_sf$plotsample$counts, aes(col = count), size = 3) +
+  theme_bw()
+
+plotsamples <- gorillas_sf$plotsample$counts %>% 
+  mutate(PA = if_else(count == 0, 0, 1))
+
+# 2. Covars ####
+covars <- rast("Data/covars.grd")
+plot(covars)
+
+covars_s <- scale(covars)
+plot(covars_s)
+
+ggplot() + 
+  geom_spatraster(data = covars_s, aes(fill = elev)) +
+  scale_fill_viridis_c() +
+  geom_sf(data = plotsamples, aes(col = as.factor(PA)), size = 3) +
+  theme_bw()
+
+# 3. Mesh ####
+
+mesh <- gorillas_sf$mesh
+
+ggplot() + 
+  gg(mesh) + 
+  geom_sf(data = gorillas_sf$boundary, col = "red", fill = NA) + 
+  geom_sf(data = plotsamples, aes(col = as.factor(PA)), size = 3) +
+  theme_bw()
+
+# 4. Run binomial model ####
+cmp <- ~  Intercept(1)  +  
+  Eff.elevation(covars_s$elev, model = "linear") + 
+  Eff.slope(covars_s$slopeangle, model = "linear") + 
+  Eff.water(covars_s$waterdist, model = "linear")
+
+lik1 = bru_obs(formula = PA ~ Intercept + Eff.elevation,
+               family = "binomial",
+               data = plotsamples, 
+               domain =  list(geometry = mesh))
+
+m1 <- bru(cmp, 
+          lik1) 
+
+summary(m1)
+
+## 4.1 Set up dataset for predictions ####
+newdf <- fm_pixels(mesh,
+                   dims = c(100, 100),
+                   mask = gorillas_sf$boundary,
+                   format = "sf")
+
+## 4.2 Obtain prediction ####
+pred1 <- predict(m1, newdata = newdf, 
+                 ~ plogis(Intercept + Eff.elevation), 
+                 n.samples = 100)
+
+ggplot() + 
+  gg(data = pred1, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = plotsamples, aes(col = factor(PA))) +
+  scale_fill_viridis_c() +
+  theme_bw() 
+
+## 4.3 Evaluate covariate effect ####
+elev.pred <- predict(
+  m1,
+  n.samples = 100,
+  newdata = data.frame(
+    elevation_new = seq(min(covars_s$elev[], na.rm = T), 
+                        max(covars_s$elev[], na.rm = T), 
+                        length.out = 100)),
+  formula = ~ Eff.elevation_eval(elevation_new)) 
+
+ggplot(elev.pred) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw()
+
+# 5. Run Poisson model ####
+
+lik2 = bru_obs(formula = count ~ Intercept + Eff.elevation,
+               family = "poisson",
+               data = plotsamples, 
+               domain =  list(geometry = mesh))
+
+m2 <- bru(cmp, 
+          lik2) 
+
+summary(m2)
+
+## 5.2 Obtain prediction ####
+pred2 <- predict(m2, newdata = newdf, 
+                 ~ exp(Intercept + Eff.elevation), 
+                 n.samples = 100)
+
+ggplot() + 
+  gg(data = pred2, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = plotsamples, aes(col = count)) +
+  scale_fill_viridis_c() +
+  theme_bw() 
+
+## 5.3 Evaluate covariate effect ####
+elev.pred <- predict(
+  m2,
+  n.samples = 100,
+  newdata = data.frame(
+    elevation_new = seq(min(covars_s$elev[], na.rm = T), 
+                        max(covars_s$elev[], na.rm = T), 
+                        length.out = 100)),
+  formula = ~ Eff.elevation_eval(elevation_new)) 
+
+ggplot(elev.pred) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw()
+
+# 6. Run log gaussian cox process model ####
+
+## 6.1 Plot data ####
+
+nests <- gorillas_sf$nests
+
+ggplot() + 
+  gg(mesh) +
+  geom_sf(data = nests, alpha = 0.2) + 
+  theme_bw()
+
+## 6.2 Run model ####
+lik3 = bru_obs(formula = geometry ~ Intercept + Eff.elevation,
+               family = "cp",
+               data = nests, 
+               samplers = gorillas_sf$plotsample$plots,
+               domain =  list(geometry = mesh))
+
+m3 <- bru(cmp, 
+          lik3) 
+
+summary(m3)
+
+## 6.3 Obtain prediction ####
+pred3 <- predict(m3, newdata = newdf, 
+                 ~ exp(Intercept + Eff.elevation), 
+                 n.samples = 100)
+
+ggplot() + 
+  gg(data = pred3, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = nests, col = "red") +
+  scale_fill_viridis_c() +
+  theme_bw() 
+
+## 6.4 Evaluate covariate effect ####
+elev.pred <- predict(
+  m3,
+  n.samples = 100,
+  newdata = data.frame(
+    elevation_new = seq(min(covars_s$elev[], na.rm = T), 
+                        max(covars_s$elev[], na.rm = T), 
+                        length.out = 100)),
+  formula = ~ Eff.elevation_eval(elevation_new)) 
+
+ggplot(elev.pred) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw()
+
+m1$summary.fixed
+m2$summary.fixed
+m3$summary.fixed
