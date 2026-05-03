@@ -22,6 +22,7 @@ ggplot() +
   geom_sf(data = gorillas_sf$boundary, fill = "lightgray") +
   geom_sf(data = gorillas_sf$nests, alpha = 0.2) + 
   geom_sf(data = gorillas_sf$plotsample$counts, aes(col = count), size = 3) +
+  geom_sf(data = gorillas_sf$plotsample$plots, fill = NA) +
   theme_bw()
 
 plotsamples <- gorillas_sf$plotsample$counts %>% 
@@ -157,7 +158,7 @@ ggplot() +
 lik3 = bru_obs(formula = geometry ~ Intercept + Eff.elevation,
                family = "cp",
                data = nests, 
-               samplers = gorillas_sf$plotsample$plots,
+               # samplers = gorillas_sf$plotsample$plots,
                domain =  list(geometry = mesh))
 
 m3 <- bru(cmp, 
@@ -194,6 +195,68 @@ ggplot(elev.pred) +
               alpha = 0.2) + 
   theme_bw()
 
+# 7. Sampled lgcp ####
+
+nests <- gorillas_sf$nests
+
+sampled_nests <- st_filter(
+  nests, gorillas_sf$plotsample$plots)
+
+ggplot() + 
+  geom_sf(data = nests, alpha = 0.5) + 
+  geom_sf(data = gorillas_sf$plotsample$plots, fill = NA) + 
+  geom_sf(data = sampled_nests, col = "red") + 
+  theme_bw()
+
+## 6.2 Run model ####
+lik4 = bru_obs(formula = geometry ~ Intercept + Eff.elevation,
+               family = "cp",
+               data = sampled_nests, 
+               samplers = gorillas_sf$plotsample$plots,
+               domain =  list(geometry = mesh))
+
+m4 <- bru(cmp, 
+          lik4) 
+
+summary(m4)
+
+## 6.3 Obtain prediction ####
+pred4 <- predict(m4, newdata = newdf, 
+                 ~ exp(Intercept + Eff.elevation), 
+                 n.samples = 100)
+
+ggplot() + 
+  gg(data = pred4, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = sampled_nests, col = "red", size = 0.5) +
+  scale_fill_viridis_c() +
+  theme_bw() +  
+
+ggplot() + 
+  gg(data = pred4, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = nests, col = "red", size = 0.5) +
+  scale_fill_viridis_c() +
+  theme_bw() 
+
+## 6.4 Evaluate covariate effect ####
+elev.pred <- predict(
+  m4,
+  n.samples = 100,
+  newdata = data.frame(
+    elevation_new = seq(min(covars_s$elev[], na.rm = T), 
+                        max(covars_s$elev[], na.rm = T), 
+                        length.out = 100)),
+  formula = ~ Eff.elevation_eval(elevation_new)) 
+
+ggplot(elev.pred) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw()
+
+
 m1$summary.fixed
 m2$summary.fixed
 m3$summary.fixed
+m4$summary.fixed
