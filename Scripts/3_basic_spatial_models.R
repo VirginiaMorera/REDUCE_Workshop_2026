@@ -1,5 +1,6 @@
 # 0. Housekeeping ####
 rm(list = ls())
+load("Environments/3_basic_spatial_models.RData")
 
 library(inlabru)
 library(INLA)
@@ -208,7 +209,7 @@ ggplot() +
   geom_sf(data = sampled_nests, col = "red") + 
   theme_bw()
 
-## 6.2 Run model ####
+## 7.1 Run model ####
 lik4 = bru_obs(formula = geometry ~ Intercept + Eff.elevation,
                family = "cp",
                data = sampled_nests, 
@@ -220,7 +221,7 @@ m4 <- bru(cmp,
 
 summary(m4)
 
-## 6.3 Obtain prediction ####
+## 7.2 Obtain prediction ####
 pred4 <- predict(m4, newdata = newdf, 
                  ~ exp(Intercept + Eff.elevation), 
                  n.samples = 100)
@@ -237,7 +238,7 @@ ggplot() +
   scale_fill_viridis_c() +
   theme_bw() 
 
-## 6.4 Evaluate covariate effect ####
+## 7.3 Evaluate covariate effect ####
 elev.pred <- predict(
   m4,
   n.samples = 100,
