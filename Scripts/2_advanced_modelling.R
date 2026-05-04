@@ -224,7 +224,7 @@ ggplot(smooth) +
 inla.priors.used(m3)
 
 cmp3.2 <- ~ Intercept(1) +
-  smooth(x, model = "rw1", 
+  smooth(x, model = "rw2", 
          hyper = list(
            prec = list(
              prior = "pc.prec",
