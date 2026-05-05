@@ -27,7 +27,7 @@ covars <- rast(qcs_grid, type = "xyz")
 crs(covars) <- crs(pcod_sf)
 
 plot(covars)                    
-covars_new$depth <- covars$depth
+covars_new <- subset(covars, 1)
 covars_new$slope <- terrain(covars_new$depth, v = "slope")
 covars_new$tri <- terrain(covars_new$depth, v = "TRI", neighbors = 8)
 
@@ -94,16 +94,19 @@ plot(spde.posterior(m1, "Eff.space", what = "log.variance"))
 
 ## 5.1. Predict ####
 
+msk <- st_as_sf(st_convex_hull(st_union(pcod_sf)))
+
 new_data <- fm_pixels(mesh, 
-                      mask = T, 
+                      mask = msk, 
                       dims = c(120, 100)) %>% 
   st_set_crs(st_crs(pcod_sf))
 
 new_rs <- rast(st_coordinates(new_data), type = "xyz")
 
 pred1 <- predict(m1, 
-                 new_data, 
-                 ~ plogis(Intercept + Eff.depth_rw + Eff.space))
+                 new_data,
+                 mask = msk, 
+                 ~ plogis(Intercept + Eff.depth + Eff.space))
 
 
 pred1_rs <- rast(cbind(st_coordinates(pred1), pred1$q0.5), type = "xyz")
@@ -135,10 +138,28 @@ depth.pred <- predict(
   m1,
   n.samples = 100,
   newdata = data.frame(
-    depth_new = seq(min(depth$depth_group[], na.rm = T), 
-                        max(depth$depth_group[], na.rm = T), 
-                        length.out = 100)),
-  formula = ~ Eff.depth_rw_eval(depth_new)) 
+    depth_new = seq(min(covars_new$depth[], na.rm = T), 
+                    max(covars_new$depth[], na.rm = T), 
+                    length.out = 100)),
+  formula = ~ Eff.depth_eval(depth_new)) 
+
+slope.pred <- predict(
+  m1,
+  n.samples = 100,
+  newdata = data.frame(
+    slope_new = seq(min(covars_new$slope[], na.rm = T), 
+                    max(covars_new$slope[], na.rm = T), 
+                    length.out = 100)),
+  formula = ~ Eff.slope_eval(slope_new)) 
+
+tri.pred <- predict(
+  m1,
+  n.samples = 100,
+  newdata = data.frame(
+    tri_new = seq(min(covars_new$tri[], na.rm = T), 
+                  max(covars_new$tri[], na.rm = T), 
+                  length.out = 100)),
+  formula = ~ Eff.tri_eval(tri_new)) 
 
 ggplot(depth.pred) +
   geom_line(aes(depth_new, q0.5)) +
@@ -146,11 +167,20 @@ ggplot(depth.pred) +
                   ymin = q0.025,
                   ymax = q0.975),
               alpha = 0.2) + 
-  theme_bw()
+  theme_bw() +
 
-m1$summary.random$Eff.depth_rw %>%
-  ggplot() + geom_line(aes(ID,mean)) +
-  geom_ribbon(aes(ID,
-                  ymin = `0.025quant`,
-                  ymax = `0.975quant`),
-              alpha = 0.5)
+ggplot(slope.pred) +
+  geom_line(aes(slope_new, q0.5)) +
+  geom_ribbon(aes(slope_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw() + 
+
+ggplot(tri.pred) +
+  geom_line(aes(tri_new, q0.5)) +
+  geom_ribbon(aes(tri_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw()
