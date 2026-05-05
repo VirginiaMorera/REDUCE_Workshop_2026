@@ -86,7 +86,7 @@ ggplot() +
   theme_bw() 
 
 ## 4.3 Evaluate covariate effect ####
-elev.pred <- predict(
+elev.pred1 <- predict(
   m1,
   n.samples = 100,
   newdata = data.frame(
@@ -95,7 +95,7 @@ elev.pred <- predict(
                         length.out = 100)),
   formula = ~ Eff.elevation_eval(elevation_new)) 
 
-ggplot(elev.pred) +
+ggplot(elev.pred1) +
   geom_line(aes(elevation_new, q0.5)) +
   geom_ribbon(aes(elevation_new,
                   ymin = q0.025,
@@ -124,10 +124,11 @@ ggplot() +
   gg(data = pred2, aes(fill = q0.5), geom = "tile") +
   geom_sf(data = plotsamples, aes(col = count)) +
   scale_fill_viridis_c() +
+  scale_color_viridis_c(option = "B") + 
   theme_bw() 
 
 ## 5.3 Evaluate covariate effect ####
-elev.pred <- predict(
+elev.pred2 <- predict(
   m2,
   n.samples = 100,
   newdata = data.frame(
@@ -136,7 +137,7 @@ elev.pred <- predict(
                         length.out = 100)),
   formula = ~ Eff.elevation_eval(elevation_new)) 
 
-ggplot(elev.pred) +
+ggplot(elev.pred2) +
   geom_line(aes(elevation_new, q0.5)) +
   geom_ribbon(aes(elevation_new,
                   ymin = q0.025,
@@ -179,7 +180,7 @@ ggplot() +
   theme_bw() 
 
 ## 6.4 Evaluate covariate effect ####
-elev.pred <- predict(
+elev.pred3 <- predict(
   m3,
   n.samples = 100,
   newdata = data.frame(
@@ -188,7 +189,7 @@ elev.pred <- predict(
                         length.out = 100)),
   formula = ~ Eff.elevation_eval(elevation_new)) 
 
-ggplot(elev.pred) +
+ggplot(elev.pred3) +
   geom_line(aes(elevation_new, q0.5)) +
   geom_ribbon(aes(elevation_new,
                   ymin = q0.025,
@@ -233,13 +234,13 @@ ggplot() +
   theme_bw() +  
 
 ggplot() + 
-  gg(data = pred4, aes(fill = q0.5), geom = "tile") +
+  gg(data = pred3, aes(fill = q0.5), geom = "tile") +
   geom_sf(data = nests, col = "red", size = 0.5) +
   scale_fill_viridis_c() +
   theme_bw() 
 
 ## 7.3 Evaluate covariate effect ####
-elev.pred <- predict(
+elev.pred4 <- predict(
   m4,
   n.samples = 100,
   newdata = data.frame(
@@ -248,7 +249,7 @@ elev.pred <- predict(
                         length.out = 100)),
   formula = ~ Eff.elevation_eval(elevation_new)) 
 
-ggplot(elev.pred) +
+ggplot(elev.pred4) +
   geom_line(aes(elevation_new, q0.5)) +
   geom_ribbon(aes(elevation_new,
                   ymin = q0.025,
@@ -261,3 +262,122 @@ m1$summary.fixed
 m2$summary.fixed
 m3$summary.fixed
 m4$summary.fixed
+
+ggplot(elev.pred1) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw() + 
+  
+ggplot(elev.pred2) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw() + 
+  
+ggplot(elev.pred3) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw() + 
+  
+ggplot(elev.pred4) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw() + 
+  
+plot_layout(nrow = 2)
+  
+# 8. Point pattern with more covariates ####
+layerCor(covars_s, "cor")$correlation
+
+lik5 <- bru_obs(formula = geometry ~ Intercept + Eff.elevation + 
+                  Eff.slope + Eff.water,
+                family = "cp",
+                data = sampled_nests, 
+                samplers = gorillas_sf$plotsample$plots,
+                domain =  list(geometry = mesh))
+
+m5 <- bru(cmp, 
+          lik5)
+
+summary(m5)
+
+pred5 <- predict(m5, newdata = newdf, 
+                 ~ exp(Intercept + Eff.elevation + 
+                         Eff.slope + Eff.water), 
+                 n.samples = 100)
+
+ggplot() + 
+  gg(data = pred5, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = nests, col = "red", size = 0.5) +
+  scale_fill_viridis_c() +
+  theme_bw() +  
+  
+ggplot() + 
+  gg(data = pred4, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = nests, col = "red", size = 0.5) +
+  scale_fill_viridis_c() +
+  theme_bw() 
+
+elev.pred5 <- predict(
+  m5,
+  n.samples = 100,
+  newdata = data.frame(
+    elevation_new = seq(min(covars_s$elev[], na.rm = T), 
+                        max(covars_s$elev[], na.rm = T), 
+                        length.out = 100)),
+  formula = ~ Eff.elevation_eval(elevation_new)) 
+
+slope.pred5 <- predict(
+  m5,
+  n.samples = 100,
+  newdata = data.frame(
+    slope_new = seq(min(covars_s$slopeangle[], na.rm = T), 
+                        max(covars_s$slopeangle[], na.rm = T), 
+                        length.out = 100)),
+  formula = ~ Eff.slope_eval(slope_new)) 
+
+water.pred5 <- predict(
+  m5,
+  n.samples = 100,
+  newdata = data.frame(
+    water_new = seq(min(covars_s$waterdist[], na.rm = T), 
+                        max(covars_s$waterdist[], na.rm = T), 
+                        length.out = 100)),
+  formula = ~ Eff.water_eval(water_new)) 
+
+ggplot(elev.pred5) +
+  geom_line(aes(elevation_new, q0.5)) +
+  geom_ribbon(aes(elevation_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw() + 
+
+ggplot(slope.pred5) +
+  geom_line(aes(slope_new, q0.5)) +
+  geom_ribbon(aes(slope_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw() + 
+  
+ggplot(water.pred5) +
+  geom_line(aes(water_new, q0.5)) +
+  geom_ribbon(aes(water_new,
+                  ymin = q0.025,
+                  ymax = q0.975),
+              alpha = 0.2) + 
+  theme_bw()
+
+
