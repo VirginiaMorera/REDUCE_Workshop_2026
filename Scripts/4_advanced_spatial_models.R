@@ -23,6 +23,7 @@ ggplot() +
   geom_sf(data = gorillas_sf$boundary, fill = "lightgray") +
   geom_sf(data = gorillas_sf$nests, alpha = 0.2) + 
   geom_sf(data = gorillas_sf$plotsample$counts, aes(col = count), size = 3) +
+  scale_colour_viridis_c(option = "B") + 
   theme_bw()
 
 plotsamples <- gorillas_sf$plotsample$counts
@@ -35,7 +36,8 @@ plot(covars_s)
 ggplot() + 
   geom_spatraster(data = covars_s, aes(fill = elev)) +
   scale_fill_viridis_c() +
-  geom_sf(data = plotsamples, aes(col = count), size = 3) +
+  geom_sf(data = plotsamples, aes(col = count, size = exposure)) +
+  scale_colour_viridis_c(option = "B") + 
   theme_bw()
 
 # 3. Mesh ####
@@ -44,12 +46,15 @@ ggplot() +
   gg(gorillas_sf$mesh) + 
   geom_sf(data = gorillas_sf$boundary, col = "red", fill = NA) + 
   geom_sf(data = plotsamples, aes(col = count), size = 3) +
+  geom_sf(data = gorillas_sf$nests, alpha = 0.5, size = 1) + 
+  scale_colour_viridis_c(option = "B") +
   theme_bw()
 
 outer_boundary <- st_buffer(gorillas_sf$boundary, 2)
+inner_boundary <- st_buffer(gorillas_sf$boundary, 0.15)
 
 mesh_better <- fm_mesh_2d_inla(
-  boundary = list(gorillas_sf$boundary, outer_boundary),
+  boundary = list(inner_boundary, outer_boundary),
   max.edge = c(0.1,0.5),  # this controls the size of the triangles
   crs = st_crs(gorillas_sf$nests)) 
 
@@ -57,10 +62,16 @@ mesh <- gorillas_sf$mesh
 
 ggplot() + 
   gg(mesh_better) + 
+  geom_sf(data = plotsamples, aes(col = count), size = 3) +
+  geom_sf(data = gorillas_sf$nests, alpha = 0.5, size = 1) + 
+  scale_colour_viridis_c(option = "B") +
   theme_bw() + 
   
 ggplot() + 
   gg(mesh) + 
+  geom_sf(data = plotsamples, aes(col = count), size = 3) +
+  geom_sf(data = gorillas_sf$nests, alpha = 0.5, size = 1) + 
+  scale_colour_viridis_c(option = "B") +
   theme_bw()
 
 # 4. Define SPDE priors ####
@@ -84,7 +95,8 @@ lik1 = bru_obs(formula = count ~ Intercept + Eff.elevation + Eff.rdm,
                domain =  list(geometry = mesh_better))
 
 m1 <- bru(cmp, 
-          lik1) 
+          lik1, 
+          options = list(E = plotsamples$exposure)) 
 
 summary(m1)
 
@@ -102,6 +114,7 @@ ggplot() +
   gg(data = pred1, aes(fill = q0.5), geom = "tile") +
   geom_sf(data = plotsamples, aes(col = count)) +
   scale_fill_viridis_c() +
+  scale_colour_viridis_c(option = "B") + 
   theme_bw() 
 
 ## 5.2 Random effect #### 
@@ -116,6 +129,19 @@ ggplot() +
   scale_fill_distiller(palette = 'RdBu', 
                        limit = max(abs(rdm1$q0.5)) * c(-1, 1)) + 
   theme_bw()
+
+ggplot() + 
+  gg(data = rdm1, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = plotsamples, aes(col = count)) +
+  scale_fill_distiller(palette = 'RdBu', 
+                       limit = max(abs(rdm1$q0.5)) * c(-1, 1)) + 
+  theme_bw() + 
+
+ggplot() + 
+  gg(data = pred1, aes(fill = q0.5), geom = "tile") +
+  geom_sf(data = plotsamples, aes(col = count)) +
+  scale_fill_viridis_c()+ 
+  theme_bw() 
 
 ## 5.3 Evaluate covariate effect ####
 elev.pred <- predict(
@@ -155,7 +181,8 @@ lik2 = bru_obs(formula = count ~ Intercept + Eff.elevation + Eff.rdm,
                domain =  list(geometry = mesh_better))
 
 m2 <- bru(cmp2, 
-          lik2) 
+          lik2, 
+          options = list(E = plotsamples$exposure)) 
 
 summary(m2)
 
@@ -171,6 +198,7 @@ ggplot() +
   gg(data = pred2, aes(fill = q0.5), geom = "tile") +
   geom_sf(data = plotsamples, aes(col = count)) +
   scale_fill_viridis_c() + 
+  scale_colour_viridis_c(option = "B") + 
   theme_bw() + 
 
 ggplot() + 
@@ -233,6 +261,7 @@ pred3 <- predict(m3, newdata = newdf,
 rdm3 <- predict(m3, newdata = newdf, 
                  ~ Eff.rdm, 
                  n.samples = 100)
+
 
 ggplot() + 
   gg(data = pred3, aes(fill = q0.5), geom = "tile") +
