@@ -28,6 +28,10 @@ nests$mark <- 10 + rnorm(n, mean = 0, sd = 2)
 
 mesh <- gorillas_sf$mesh
 
+covars <- rast("Data/covars.grd")
+covars_s <- scale(covars)
+plot(covars_s)
+
 # 2. Model ####
 matern_points <- inla.spde2.pcmatern(mesh,
                                      prior.range = c(2, 0.1),
