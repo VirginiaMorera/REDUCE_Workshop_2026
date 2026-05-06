@@ -39,7 +39,7 @@ covars_scaled <- scale(covars_new)
 plot(covars_scaled)
 
 ggplot() + 
-  geom_spatraster(data = depth, aes(fill = depth_scaled)) + 
+  geom_spatraster(data = covars_scaled, aes(fill = depth)) + 
   scale_fill_viridis_c(na.value = NA) + 
   geom_sf(data = pcod_sf, aes(col = factor(present))) + 
   scale_color_manual(values = c("black","orange"),
@@ -49,13 +49,14 @@ ggplot() +
 # 2. Build mesh ####
 
 mesh <- fm_mesh_2d(loc = pcod_sf, # instead of boundary, we give points
-                  cutoff = 2,
-                  max.edge = c(7,20), # The largest allowed triangle edge length.
-                  offset = c(5,50)) # The automatic extension distance
+                   cutoff = 2,
+                   max.edge = c(7,20), # The largest allowed triangle edge length.
+                   offset = c(5,50), 
+                   crs = st_crs(pcod_sf)) # The automatic extension distance
 
 ggplot() + 
   gg(mesh) +
-  geom_sf(data= pcod_sf, aes(color = factor(present)), size = 0.5) +
+  # geom_sf(data= pcod_sf, aes(color = factor(present)), size = 0.5) +
   xlab("") + ylab("")
 
 # 3. Build SPDE ####
@@ -76,9 +77,7 @@ cmp <- ~ Intercept(1) +
 
 # 5. Run model ####
 
-formula <-  present ~ Intercept + 
-  Eff.depth + Eff.slope + Eff.tri + 
-  Eff.space
+formula <-  present ~ .
 
 lik1 <- bru_obs(formula = formula,
                 data = pcod_sf,
@@ -106,7 +105,7 @@ new_rs <- rast(st_coordinates(new_data), type = "xyz")
 pred1 <- predict(m1, 
                  new_data,
                  mask = msk, 
-                 ~ plogis(Intercept + Eff.depth + Eff.space))
+                 ~ plogis(Intercept + Eff.depth + Eff.depth + Eff.tri + Eff.space))
 
 
 pred1_rs <- rast(cbind(st_coordinates(pred1), pred1$q0.5), type = "xyz")
