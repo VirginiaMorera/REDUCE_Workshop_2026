@@ -53,13 +53,14 @@ ggplot() +
 
 ## 3.2 SPDE priors ####
 the_spde <- inla.spde2.pcmatern(mesh1D,
-                                prior.range = c(1, 0.01),
-                                prior.sigma = c(2, 0.01)
+                                prior.range = c(30, 0.01),
+                                prior.sigma = c(0.5, 0.01)
 )
 
 ## 3.3 Fit ####
 fit2.bru <- bru(
-  count ~ Intercept(1, prec.linear = 1 / 2^2) + field(x, model = the_spde), 
+  count ~ Intercept(1, prec.linear = 1 / 2^2) + 
+    field(x, model = the_spde), 
   data = cd, 
   family = "poisson"
 )
