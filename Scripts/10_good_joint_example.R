@@ -18,14 +18,10 @@ bru_options_set(control.compute = list(dic = TRUE,
 
 data("gorillas_sf")
 
-nests <- gorillas_sf$nests %>% 
-  mutate(PO = 1) %>% 
-  select(PO)
+nests <- gorillas_sf$nests 
 
 counts <- gorillas_sf$plotsample$counts %>% 
   select(-exposure)
-
-joint_df <- bind_rows(nests, counts)
 
 mesh <- gorillas_sf$mesh
 
