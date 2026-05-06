@@ -163,7 +163,7 @@ ggplot(elev.pred) +
 
 ## 5.4 Try with non-linear covariate ####
 
-covars_s$elev_group = inla.group(values(covars_s$elev))
+covars_s$elev_group = inla.group(values(covars_s$elev), n = 20)
 
 cmp2 <- ~  Intercept(1)  +  
   # Eff.elevation(covars_s$elev_group, model = "rw2") + 
